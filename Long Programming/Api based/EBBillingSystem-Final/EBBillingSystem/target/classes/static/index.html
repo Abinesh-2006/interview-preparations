@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EBB — Electricity Billing Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{--bg:#0a0e1a;--surface:#111827;--card:#1a2236;--border:#1f2d45;--accent:#00c2ff;--accent2:#7c3aed;--success:#10b981;--warn:#f59e0b;--danger:#ef4444;--text:#e2e8f0;--muted:#64748b;--glow:0 0 20px rgba(0,194,255,0.15)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;padding:28px 0}
+  .logo{padding:0 20px 28px;font-size:1.1rem;font-weight:700;letter-spacing:.06em;color:var(--accent);border-bottom:1px solid var(--border)}
+  .logo span{color:var(--text)}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;cursor:pointer;color:var(--muted);font-size:.88rem;font-weight:500;transition:all .18s;border-left:3px solid transparent}
+  .nav-item:hover{color:var(--text);background:rgba(255,255,255,.03)}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,194,255,.05)}
+  .nav-icon{font-size:1.1rem;width:20px;text-align:center}
+  .sidebar-footer{margin-top:auto;padding:20px;border-top:1px solid var(--border);font-size:.75rem;color:var(--muted)}
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--success);margin-right:6px;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .main{margin-left:220px;padding:32px 36px;min-height:100vh}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}
+  .page-title{font-size:1.4rem;font-weight:700}
+  .page-title span{color:var(--accent)}
+  .btn{padding:8px 16px;border-radius:8px;border:none;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .18s}
+  .btn-accent{background:var(--accent);color:#000}
+  .btn-accent:hover{background:#33d0ff;box-shadow:var(--glow)}
+  .btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-success{background:var(--success);color:#fff}
+  .btn-sm{padding:5px 12px;font-size:.78rem}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px;position:relative;overflow:hidden}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+  .stat-card.blue::before{background:var(--accent)}.stat-card.purple::before{background:var(--accent2)}.stat-card.green::before{background:var(--success)}.stat-card.amber::before{background:var(--warn)}
+  .stat-label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .stat-val{font-size:2rem;font-weight:700;margin:6px 0 2px;font-family:'JetBrains Mono',monospace}
+  .stat-val.blue{color:var(--accent)}.stat-val.purple{color:var(--accent2)}.stat-val.green{color:var(--success)}.stat-val.amber{color:var(--warn)}
+  .stat-sub{font-size:.75rem;color:var(--muted)}
+  .section{display:none}.section.active{display:block}
+  .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  .section-title{font-size:1rem;font-weight:600;color:var(--text)}
+  .homes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .home-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all .22s;position:relative;overflow:hidden}
+  .home-card:hover{border-color:var(--accent);box-shadow:var(--glow);transform:translateY(-2px)}
+  .home-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  .home-badge.domestic{background:rgba(16,185,129,.15);color:var(--success)}
+  .home-badge.commercial{background:rgba(124,58,237,.15);color:#a78bfa}
+  .home-no{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-bottom:4px}
+  .home-name{font-weight:600;font-size:1rem;margin-bottom:4px}
+  .home-addr{font-size:.8rem;color:var(--muted);margin-bottom:14px}
+  .home-voltage{display:flex;align-items:baseline;gap:4px;font-family:'JetBrains Mono',monospace}
+  .voltage-val{font-size:1.5rem;font-weight:700;color:var(--accent)}
+  .voltage-unit{font-size:.75rem;color:var(--muted)}
+  .home-actions{margin-top:14px;display:flex;gap:8px}
+  .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center}
+  .panel-overlay.open{display:flex}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:700px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:28px;position:relative}
+  .panel-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+  .panel-title{font-size:1.1rem;font-weight:700}
+  .panel-sub{font-size:.8rem;color:var(--muted);margin-top:3px}
+  .close-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0}
+  .close-btn:hover{color:var(--text);border-color:var(--accent)}
+  .volt-chart{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;height:180px;overflow:hidden}
+  .chart-bars{display:flex;align-items:flex-end;gap:6px;height:100%;padding-top:24px}
+  .chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+  .chart-bar{width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--accent),rgba(0,194,255,.4));min-height:4px;position:relative}
+  .chart-bar:hover::after{content:attr(data-tip);position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:.72rem;white-space:nowrap;color:var(--accent);font-family:'JetBrains Mono',monospace;z-index:10}
+  .chart-label{font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+  .volt-table{width:100%;border-collapse:collapse;font-size:.83rem}
+  .volt-table th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;font-size:.73rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+  .volt-table td{padding:10px 12px;border-bottom:1px solid rgba(31,45,69,.6)}
+  .volt-table tr:last-child td{border-bottom:none}
+  .volt-table tr:hover td{background:rgba(0,194,255,.03)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:600}
+  .pill.high{background:rgba(239,68,68,.15);color:var(--danger)}.pill.med{background:rgba(0,194,255,.12);color:var(--accent)}.pill.low{background:rgba(16,185,129,.12);color:var(--success)}
+  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .data-table{width:100%;border-collapse:collapse;font-size:.83rem}
+  .data-table th{text-align:left;padding:12px 16px;background:var(--surface);color:var(--muted);font-weight:500;font-size:.73rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+  .data-table td{padding:12px 16px;border-bottom:1px solid rgba(31,45,69,.4)}
+  .data-table tr:last-child td{border-bottom:none}
+  .data-table tr:hover td{background:rgba(0,194,255,.02)}
+  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.72rem;font-weight:600}
+  .badge-settled{background:rgba(16,185,129,.15);color:var(--success)}.badge-pending{background:rgba(245,158,11,.13);color:var(--warn)}
+  .calc-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:480px}
+  .form-row{margin-bottom:18px}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;font-weight:500}
+  .form-input,.form-select{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Space Grotesk',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;appearance:none}
+  .form-input:focus,.form-select:focus{border-color:var(--accent)}
+  .result-box{background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:20px;text-align:center;margin-top:20px;display:none}
+  .result-box.show{display:block}
+  .result-amount{font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:700;color:var(--accent)}
+  .result-label{font-size:.8rem;color:var(--muted);margin-top:4px}
+  .toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+  .toast{background:var(--card);border:1px solid var(--border);padding:12px 18px;border-radius:10px;font-size:.83rem;min-width:220px;animation:slideIn .25s ease;display:flex;align-items:center;gap:8px}
+  .toast.success{border-left:3px solid var(--success)}.toast.error{border-left:3px solid var(--danger)}.toast.info{border-left:3px solid var(--accent)}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty-icon{font-size:2.5rem;margin-bottom:12px}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:center;justify-content:center}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:440px;max-width:95vw}
+  .modal-title{font-size:1rem;font-weight:700;margin-bottom:20px}
+  @media(max-width:768px){.sidebar{width:60px}.nav-item span,.logo span,.sidebar-footer{display:none}.main{margin-left:60px;padding:20px 16px}.stats-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">⚡ <span>EBB System</span></div>
+  <div class="nav-item active" onclick="navigate('dashboard')"><span class="nav-icon">⊞</span><span>Dashboard</span></div>
+  <div class="nav-item" onclick="navigate('homes')"><span class="nav-icon">🏠</span><span>Homes</span></div>
+  <div class="nav-item" onclick="navigate('billing')"><span class="nav-icon">🧾</span><span>Billing</span></div>
+  <div class="nav-item" onclick="navigate('calculate')"><span class="nav-icon">⚡</span><span>Calculate</span></div>
+  <div class="nav-item" onclick="navigate('centers')"><span class="nav-icon">🏢</span><span>Centers</span></div>
+  <div class="sidebar-footer"><span class="status-dot"></span>API Live</div>
+</nav>
+
+<main class="main">
+  <div class="topbar">
+    <div class="page-title">Electricity <span>Billing</span> Dashboard</div>
+    <button class="btn btn-accent" onclick="refreshAll()">⟳ Refresh</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <section class="section active" id="sec-dashboard">
+    <div class="stats-row">
+      <div class="stat-card blue"><div class="stat-label">Total Homes</div><div class="stat-val blue" id="stat-homes">—</div><div class="stat-sub">Registered</div></div>
+      <div class="stat-card purple"><div class="stat-label">Total Bills</div><div class="stat-val purple" id="stat-bills">—</div><div class="stat-sub">All time</div></div>
+      <div class="stat-card amber"><div class="stat-label">Pending Bills</div><div class="stat-val amber" id="stat-pending">—</div><div class="stat-sub">Unsettled</div></div>
+      <div class="stat-card green"><div class="stat-label">Centers</div><div class="stat-val green" id="stat-centers">—</div><div class="stat-sub">Active nodes</div></div>
+    </div>
+    <div class="section-header">
+      <div class="section-title">All Homes — click a card to view voltage history</div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('homes')">+ Add Home</button>
+    </div>
+    <div class="homes-grid" id="dash-homes-grid"><div class="empty-state"><div class="empty-icon">⏳</div><div>Loading...</div></div></div>
+  </section>
+
+  <!-- HOMES -->
+  <section class="section" id="sec-homes">
+    <div class="section-header">
+      <div class="section-title">Homes Management</div>
+      <button class="btn btn-accent btn-sm" onclick="openModal('modal-home')">+ Add Home</button>
+    </div>
+    <div class="homes-grid" id="homes-grid"><div class="empty-state"><div class="empty-icon">⏳</div><div>Loading...</div></div></div>
+  </section>
+
+  <!-- BILLING -->
+  <section class="section" id="sec-billing">
+    <div class="section-header">
+      <div class="section-title">Bills</div>
+      <button class="btn btn-accent btn-sm" onclick="openModal('modal-bill')">+ Create Bill</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Bill #</th><th>Home</th><th>Amount (₹)</th><th>Created</th><th>Settled</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="billing-tbody"><tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CALCULATE -->
+  <section class="section" id="sec-calculate">
+    <div class="section-title" style="margin-bottom:20px">Bill Calculator</div>
+    <div class="calc-card">
+      <div class="form-row"><label>Units Consumed (kWh)</label><input class="form-input" id="calc-units" type="number" placeholder="e.g. 250" min="0"></div>
+      <div class="form-row">
+        <label>Home Type</label>
+        <select class="form-select" id="calc-type">
+          <option value="domestic">Domestic — slab rates</option>
+          <option value="commercial">Commercial — ₹5.00/unit</option>
+        </select>
+      </div>
+      <button class="btn btn-accent" style="width:100%" onclick="calculateBill()">Calculate Amount</button>
+      <div class="result-box" id="result-box">
+        <div class="result-label">Estimated Bill Amount</div>
+        <div class="result-amount" id="result-amount">₹0.00</div>
+        <div class="result-label" id="result-breakdown"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CENTERS -->
+  <section class="section" id="sec-centers">
+    <div class="section-header">
+      <div class="section-title">Electricity Centers</div>
+      <button class="btn btn-accent btn-sm" onclick="openModal('modal-center')">+ Add Center</button>
+    </div>
+    <div class="homes-grid" id="centers-grid"><div class="empty-state"><div class="empty-icon">⏳</div><div>Loading...</div></div></div>
+  </section>
+</main>
+
+<!-- VOLTAGE HISTORY PANEL -->
+<div class="panel-overlay" id="volt-overlay" onclick="closePanelIfBg(event)">
+  <div class="panel">
+    <div class="panel-header">
+      <div><div class="panel-title" id="panel-home-name">Voltage History</div><div class="panel-sub" id="panel-home-addr"></div></div>
+      <button class="close-btn" onclick="closePanel()">✕</button>
+    </div>
+    <div class="volt-chart"><div class="chart-bars" id="chart-bars"></div></div>
+    <table class="volt-table">
+      <thead><tr><th>#</th><th>Month</th><th>Voltage (V)</th><th>Level</th></tr></thead>
+      <tbody id="volt-tbody"></tbody>
+    </table>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="closePanel();navigate('billing')">View Bills</button>
+      <button class="btn btn-accent btn-sm" onclick="addVoltageForHome()">+ Add Reading</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-home">
+  <div class="modal">
+    <div class="modal-title">Add New Home</div>
+    <div class="form-row"><label>Owner Name</label><input class="form-input" id="h-name" placeholder="e.g. Ravi Kumar"></div>
+    <div class="form-row"><label>Address</label><input class="form-input" id="h-addr" placeholder="12 Gandhi St, Puducherry"></div>
+    <div class="form-row"><label>Phone Number</label><input class="form-input" id="h-phone" type="number" placeholder="9876543210"></div>
+    <div class="form-row"><label>Current Voltage (V)</label><input class="form-input" id="h-voltage" type="number" placeholder="230"></div>
+    <div class="form-row"><label>Type</label><select class="form-select" id="h-type"><option value="domestic">Domestic</option><option value="commercial">Commercial</option></select></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-home')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitHome()">Save Home</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-bill">
+  <div class="modal">
+    <div class="modal-title">Create Bill</div>
+    <div class="form-row"><label>Home No (ID)</label><input class="form-input" id="b-homeno" type="number" placeholder="Home ID"></div>
+    <div class="form-row"><label>Center ID</label><input class="form-input" id="b-centerid" type="number" placeholder="Center ID"></div>
+    <div class="form-row"><label>Bill Amount (₹)</label><input class="form-input" id="b-amount" type="number" placeholder="Use calculator first"></div>
+    <div class="form-row"><label>Bill Date</label><input class="form-input" id="b-date" type="date"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bill')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitBill()">Create Bill</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-center">
+  <div class="modal">
+    <div class="modal-title">Add Electricity Center</div>
+    <div class="form-row"><label>Branch Name</label><input class="form-input" id="c-branch" placeholder="e.g. South Zone"></div>
+    <div class="form-row"><label>Location</label><input class="form-input" id="c-loc" placeholder="e.g. Puducherry"></div>
+    <div class="form-row"><label>Phone</label><input class="form-input" id="c-phone" type="number" placeholder="4132200000"></div>
+    <div class="form-row"><label>Email</label><input class="form-input" id="c-mail" placeholder="center@tneb.gov.in"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-center')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitCenter()">Save Center</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-voltage">
+  <div class="modal">
+    <div class="modal-title">Add Voltage Reading</div>
+    <div class="form-row"><label>Home No</label><input class="form-input" id="v-homeno" type="number" readonly></div>
+    <div class="form-row"><label>Voltage (V)</label><input class="form-input" id="v-voltage" type="number" placeholder="e.g. 235"></div>
+    <div class="form-row"><label>Month / Date</label><input class="form-input" id="v-month" type="date"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-voltage')">Cancel</button>
+      <button class="btn btn-accent" onclick="submitVoltage()">Add Reading</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// API calls go to same origin since this HTML is served by Spring Boot
+const API = '';   // empty = same origin (http://localhost:8080)
+let currentHomeId = null;
+
+function navigate(sec) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + sec).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes(sec)) n.classList.add('active');
+  });
+  if (sec === 'dashboard') loadDashboard();
+  if (sec === 'homes')     loadHomes();
+  if (sec === 'billing')   loadBillings();
+  if (sec === 'centers')   loadCenters();
+}
+
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (res.status === 200) {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const d = await res.json();
+        return { ok: true, data: d };
+      }
+      return { ok: true, data: null };
+    }
+    return { ok: false, status: res.status, data: null };
+  } catch (e) {
+    toast('API error: ' + e.message, 'error');
+    return null;
+  }
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  const icon = { success: '✓', error: '✕', info: 'ℹ' }[type];
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+async function loadDashboard() {
+  const [homes, bills, centers] = await Promise.all([
+    apiFetch('/api/homes'), apiFetch('/api/bills'), apiFetch('/api/centers')
+  ]);
+  const homeList = homes?.data || [];
+  const billList = bills?.data || [];
+  const centList = centers?.data || [];
+  document.getElementById('stat-homes').textContent   = homeList.length;
+  document.getElementById('stat-bills').textContent   = billList.length;
+  document.getElementById('stat-centers').textContent = centList.length;
+  document.getElementById('stat-pending').textContent = billList.filter(b => !b.settleDate).length;
+  renderHomeCards(homeList, 'dash-homes-grid');
+}
+
+function renderHomeCards(homes, targetId) {
+  const grid = document.getElementById(targetId);
+  if (!homes.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🏠</div><div>No homes yet. Add one above.</div></div>`;
+    return;
+  }
+  grid.innerHTML = homes.map(h => `
+    <div class="home-card" onclick="openVoltHistory(${h.homeNo},'${esc(h.holderName)}','${esc(h.homeAddress)}')">
+      <span class="home-badge ${(h.type||'domestic').toLowerCase()}">${h.type || 'Domestic'}</span>
+      <div class="home-no">HOME #${h.homeNo}</div>
+      <div class="home-name">${esc(h.holderName)}</div>
+      <div class="home-addr">📍 ${esc(h.homeAddress)}</div>
+      <div class="home-voltage"><span class="voltage-val">${h.currentVoltage}</span><span class="voltage-unit">V</span></div>
+      <div class="home-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-sm" onclick="openVoltHistory(${h.homeNo},'${esc(h.holderName)}','${esc(h.homeAddress)}')">📊 Voltages</button>
+        <button class="btn btn-ghost btn-sm" onclick="viewUnsettled(${h.homeNo})">🧾 Bills</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadHomes() {
+  const r = await apiFetch('/api/homes');
+  renderHomeCards(r?.data || [], 'homes-grid');
+}
+
+async function submitHome() {
+  const payload = { holderName: val('h-name'), homeAddress: val('h-addr'), holderPhone: +val('h-phone'), currentVoltage: +val('h-voltage'), type: val('h-type') };
+  const r = await apiFetch('/api/create/home', { method: 'POST', body: JSON.stringify(payload) });
+  if (r?.ok) { toast('Home added!', 'success'); closeModal('modal-home'); loadHomes(); loadDashboard(); }
+  else toast('Failed to add home', 'error');
+}
+
+async function openVoltHistory(id, name, addr) {
+  currentHomeId = id;
+  document.getElementById('panel-home-name').textContent = name + ' — Voltage History';
+  document.getElementById('panel-home-addr').textContent = addr;
+  document.getElementById('volt-overlay').classList.add('open');
+  const r = await apiFetch('/api/voltages/' + id);
+  const voltages = r?.data || [];
+  const tbody = document.getElementById('volt-tbody');
+  const bars  = document.getElementById('chart-bars');
+  if (!voltages.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><div class="empty-icon">📉</div><div>No voltage records yet.</div></td></tr>`;
+    bars.innerHTML  = '<div style="color:var(--muted);font-size:.8rem;margin:auto">No data</div>';
+    return;
+  }
+  const maxV = Math.max(...voltages.map(v => v.voltage));
+  bars.innerHTML = voltages.slice(-12).map(v => {
+    const pct = Math.max(6, (v.voltage / (maxV * 1.1)) * 100);
+    const d = new Date(v.voltageMonth);
+    const lbl = `${d.getMonth()+1}/${String(d.getFullYear()).slice(2)}`;
+    return `<div class="chart-bar-wrap"><div class="chart-bar" style="height:${pct}%" data-tip="${v.voltage}V"></div><span class="chart-label">${lbl}</span></div>`;
+  }).join('');
+  tbody.innerHTML = voltages.map((v, i) => {
+    const d = new Date(v.voltageMonth);
+    const level = v.voltage > 240 ? 'high' : v.voltage > 210 ? 'med' : 'low';
+    const label = v.voltage > 240 ? 'High' : v.voltage > 210 ? 'Normal' : 'Low';
+    return `<tr><td style="color:var(--muted);font-family:'JetBrains Mono',mono">${i+1}</td><td>${d.toLocaleDateString('en-IN',{month:'short',year:'numeric'})}</td><td style="font-family:'JetBrains Mono',mono;color:var(--accent)">${v.voltage} V</td><td><span class="pill ${level}">${label}</span></td></tr>`;
+  }).join('');
+}
+
+function closePanel() { document.getElementById('volt-overlay').classList.remove('open'); }
+function closePanelIfBg(e) { if (e.target === e.currentTarget) closePanel(); }
+function addVoltageForHome() { closePanel(); document.getElementById('v-homeno').value = currentHomeId; openModal('modal-voltage'); }
+
+async function submitVoltage() {
+  const payload = { voltageMonth: new Date(val('v-month')).toISOString(), voltage: +val('v-voltage'), home: { homeNo: +val('v-homeno') } };
+  const r = await apiFetch('/api/create/pastvoltage', { method: 'POST', body: JSON.stringify(payload) });
+  if (r?.ok) { toast('Voltage reading saved!', 'success'); closeModal('modal-voltage'); }
+  else toast('Failed to save voltage', 'error');
+}
+
+async function loadBillings() {
+  const r = await apiFetch('/api/bills');
+  const bills = r?.data || [];
+  const tbody = document.getElementById('billing-tbody');
+  if (!bills.length) { tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">No bills found</td></tr>`; return; }
+  tbody.innerHTML = bills.map(b => {
+    const settled = !!b.settleDate;
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',mono;color:var(--accent)">#${b.billNo}</td>
+      <td>${b.home ? `<b>#${b.home.homeNo}</b> — ${esc(b.home.holderName)}` : '—'}</td>
+      <td style="font-family:'JetBrains Mono',mono">₹${(b.billAmount||0).toFixed(2)}</td>
+      <td>${b.createDate ? new Date(b.createDate).toLocaleDateString('en-IN') : '—'}</td>
+      <td>${b.settleDate ? new Date(b.settleDate).toLocaleDateString('en-IN') : '—'}</td>
+      <td><span class="badge ${settled?'badge-settled':'badge-pending'}">${settled?'Settled':'Pending'}</span></td>
+      <td>${!settled ? `<button class="btn btn-success btn-sm" onclick="settleBill(${b.billNo})">Settle</button>` : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function viewUnsettled(homeId) {
+  navigate('billing');
+  const r = await apiFetch('/api/unsettled/bills/' + homeId);
+  const bills = r?.data || [];
+  const tbody = document.getElementById('billing-tbody');
+  if (!bills.length) { tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--success)">✓ No pending bills for this home</td></tr>`; return; }
+  tbody.innerHTML = bills.map(b => `<tr>
+    <td style="font-family:'JetBrains Mono',mono;color:var(--accent)">#${b.billNo}</td>
+    <td>${b.home ? `<b>#${b.home.homeNo}</b> — ${esc(b.home.holderName)}` : '—'}</td>
+    <td style="font-family:'JetBrains Mono',mono">₹${(b.billAmount||0).toFixed(2)}</td>
+    <td>${b.createDate ? new Date(b.createDate).toLocaleDateString('en-IN') : '—'}</td>
+    <td>—</td>
+    <td><span class="badge badge-pending">Pending</span></td>
+    <td><button class="btn btn-success btn-sm" onclick="settleBill(${b.billNo})">Settle</button></td>
+  </tr>`).join('');
+}
+
+async function settleBill(billNo) {
+  const payload = { billNo, settleDate: new Date().toISOString(), paymentId: Date.now() };
+  const r = await apiFetch('/api/settle/bill', { method: 'PUT', body: JSON.stringify(payload) });
+  if (r?.ok) { toast('Bill settled!', 'success'); loadBillings(); loadDashboard(); }
+  else toast('Failed to settle', 'error');
+}
+
+async function submitBill() {
+  const payload = { billAmount: +val('b-amount'), createDate: new Date(val('b-date')).toISOString(), home: { homeNo: +val('b-homeno') }, electricityCenter: { centerId: +val('b-centerid') } };
+  const r = await apiFetch('/api/create/billing', { method: 'POST', body: JSON.stringify(payload) });
+  if (r?.ok) { toast('Bill created!', 'success'); closeModal('modal-bill'); loadBillings(); }
+  else toast('Failed to create bill', 'error');
+}
+
+async function calculateBill() {
+  const units = +val('calc-units');
+  const type  = val('calc-type');
+  if (!units || units <= 0) { toast('Enter valid units', 'error'); return; }
+  const r = await apiFetch('/api/calculate', { method: 'POST', body: JSON.stringify({ units, homeType: type }) });
+  let amount = r?.data ?? (type === 'domestic' ? (units <= 100 ? 0 : units <= 200 ? (units-100)*1.5 : units <= 500 ? 150+(units-200)*3 : 150+900+(units-500)*5) : units * 5);
+  document.getElementById('result-amount').textContent = `₹${Number(amount).toFixed(2)}`;
+  document.getElementById('result-breakdown').textContent = `${units} units × ${type} rate`;
+  document.getElementById('result-box').classList.add('show');
+}
+
+async function loadCenters() {
+  const r = await apiFetch('/api/centers');
+  const centers = r?.data || [];
+  const grid = document.getElementById('centers-grid');
+  if (!centers.length) { grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🏢</div><div>No centers yet</div></div>`; return; }
+  grid.innerHTML = centers.map(c => `
+    <div class="home-card">
+      <div class="home-no">CENTER #${c.centerId}</div>
+      <div class="home-name">${esc(c.CenterBranch || '')}</div>
+      <div class="home-addr">📍 ${esc(c.centerLocation)}</div>
+      <div class="home-addr">📞 ${c.centerPhoneNo}</div>
+      <div class="home-addr">✉ ${esc(c.centerMail)}</div>
+    </div>`).join('');
+}
+
+async function submitCenter() {
+  const payload = { CenterBranch: val('c-branch'), centerLocation: val('c-loc'), centerPhoneNo: +val('c-phone'), centerMail: val('c-mail') };
+  const r = await apiFetch('/api/create/electricitycenter', { method: 'POST', body: JSON.stringify(payload) });
+  if (r?.ok) { toast('Center added!', 'success'); closeModal('modal-center'); loadCenters(); }
+  else toast('Failed to add center', 'error');
+}
+
+function openModal(id) { document.getElementById('modal-bill').querySelector && document.getElementById('b-date') && (document.getElementById('b-date').value = new Date().toISOString().split('T')[0]); document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay,.panel-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+function val(id) { return document.getElementById(id).value; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function refreshAll() { loadDashboard(); toast('Refreshed', 'info'); }
+
+// init
+loadDashboard();
+</script>
+</body>
+</html>
